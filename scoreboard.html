@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة النتائج</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        /* Animation for score popping */
+        @keyframes score-pop-animation {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); color: #2563eb; }
+            100% { transform: scale(1); }
+        }
+        .score-pop {
+            animation: score-pop-animation 0.4s ease-in-out;
+        }
+
+        /* Animation for cards entering the screen */
+        @keyframes card-enter-animation {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .card-enter {
+            /* We will apply this via JS to trigger it */
+            animation: card-enter-animation 0.6s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Title -->
+        <h1 class="text-4xl md:text-5xl font-extrabold text-center text-blue-600 bg-clip-text bg-gradient-to-from-blue-600 to-indigo-800 mb-8 ">لوحة النتائج</h1>
+        <div class="w-full max-w-lg mx-auto border-b-2 border-indigo-200 mb-12"></div>
+
+        <!-- Score Cards Container -->
+        <div id="cards-container" class="flex flex-wrap justify-center items-end gap-8 mb-12">
+
+            <!-- Team 1 Card -->
+            <div class="team-card bg-white rounded-2xl shadow-lg p-6 w-full sm:w-64 text-center transform hover:-translate-y-2 hover:shadow-2xl transition-all duration-300 border-4 border-transparent hover:border-blue-500 opacity-0" style="animation-delay: 100ms;">
+                <h2 class="text-2xl font-bold text-blue-600 mb-4"> المرحلة الثانية</h2>
+                <p class="score text-7xl font-bold text-gray-900 mb-6 transition-colors duration-300">0</p>
+                <div class="flex gap-2">
+                    <input type="number" class="points-input w-full p-2 border-2 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="النقاط...">
+                    <button class="add-points-btn bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-2 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">إضافة</button>
+                </div>
+            </div>
+
+            <!-- Team 2 Card -->
+            <div class="team-card bg-white rounded-2xl shadow-lg p-6 w-full sm:w-64 text-center transform hover:-translate-y-2 hover:shadow-2xl transition-all duration-300 border-4 border-transparent hover:border-blue-500 opacity-0" style="animation-delay: 200ms;">
+                <h2 class="text-2xl font-bold text-blue-600 mb-4"> المرحلة الثالثة</h2>
+                <p class="score text-7xl font-bold text-gray-900 mb-6 transition-colors duration-300">0</p>
+                <div class="flex gap-2">
+                    <input type="number" class="points-input w-full p-2 border-2 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="النقاط...">
+                    <button class="add-points-btn bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-2 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">إضافة</button>
+                </div>
+            </div>
+
+            <!-- Team 3 Card -->
+            <div class="team-card bg-white rounded-2xl shadow-lg p-6 w-full sm:w-64 text-center transform hover:-translate-y-2 hover:shadow-2xl transition-all duration-300 border-4 border-transparent hover:border-blue-500 opacity-0" style="animation-delay: 300ms;">
+                <h2 class="text-2xl font-bold text-blue-600 mb-4"> المرحلة الرابعة</h2>
+                <p class="score text-7xl font-bold text-gray-900 mb-6 transition-colors duration-300">0</p>
+                <div class="flex gap-2">
+                    <input type="number" class="points-input w-full p-2 border-2 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="النقاط...">
+                    <button class="add-points-btn bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-2 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">إضافة</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Show Final Results Button -->
+        <div class="text-center">
+            <button id="show-results-btn" class="bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 font-bold py-3 px-10 rounded-lg text-lg hover:from-yellow-500 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
+                إظهار النتائج النهائية
+            </button>
+        </div>
+        
+        <!-- Modal for Final Results -->
+        <div id="results-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300 z-50">
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md relative transform scale-95 transition-all duration-300">
+                <button id="close-modal-btn" class="absolute top-2 left-2 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+                <h2 class="text-3xl font-bold mb-6 text-center text-yellow-500">النتائج النهائية</h2>
+                <div id="final-scores" class="space-y-4 text-lg">
+                    <!-- Final ranked scores will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const addButtons = document.querySelectorAll('.add-points-btn');
+            const showResultsBtn = document.getElementById('show-results-btn');
+            const modal = document.getElementById('results-modal');
+            const modalContent = modal.querySelector('div');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const finalScoresContainer = document.getElementById('final-scores');
+            const teamCards = document.querySelectorAll('.team-card');
+
+            // Trigger card entrance animation
+            teamCards.forEach(card => {
+                card.classList.add('card-enter');
+            });
+
+            // Function to add points
+            addButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const card = button.closest('.team-card');
+                    const scoreElement = card.querySelector('.score');
+                    const inputElement = card.querySelector('.points-input');
+                    const pointsToAdd = parseInt(inputElement.value, 10);
+
+                    if (!isNaN(pointsToAdd) && pointsToAdd !== 0) {
+                        const currentScore = parseInt(scoreElement.textContent, 10);
+                        scoreElement.textContent = currentScore + pointsToAdd;
+                        inputElement.value = '';
+                        
+                        // Add and remove animation class for score pop
+                        scoreElement.classList.add('score-pop');
+                        setTimeout(() => {
+                            scoreElement.classList.remove('score-pop');
+                        }, 400);
+                    }
+                });
+            });
+
+            const showModal = () => {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            };
+
+            const hideModal = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modalContent.classList.add('scale-95');
+                modalContent.classList.remove('scale-100');
+            };
+
+            // Function to show final results
+            showResultsBtn.addEventListener('click', () => {
+                const teamsData = Array.from(teamCards).map((card, i) => ({
+                    name: card.querySelector('h2').textContent,
+                    score: parseInt(card.querySelector('.score').textContent, 10)
+                }));
+
+                teamsData.sort((a, b) => b.score - a.score);
+                finalScoresContainer.innerHTML = '';
+                
+                const rankDetails = [
+                    { rankText: 'المركز الأول', borderColor: 'border-yellow-400', shadowColor: 'shadow-yellow-200', medal: `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-yellow-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`},
+                    { rankText: 'المركز الثاني', borderColor: 'border-gray-400', shadowColor: 'shadow-gray-200', medal: `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`},
+                    { rankText: 'المركز الثالث', borderColor: 'border-amber-600', shadowColor: 'shadow-amber-200', medal: `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-amber-700" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`},
+                ];
+
+                teamsData.forEach((team, index) => {
+                    const details = rankDetails[index];
+                    const scoreCard = `
+                        <div class="border-2 ${details.borderColor} shadow-md ${details.shadowColor} rounded-xl p-4 w-full text-center transform transition hover:scale-105 hover:shadow-lg">
+                            <div class="flex items-center justify-center gap-2">
+                                ${details.medal}
+                                <p class="text-md font-bold text-gray-600">${details.rankText}</p>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-800 my-1">${team.name}</h3>
+                            <p class="text-lg text-gray-700">النقاط: ${team.score}</p>
+                        </div>
+                    `;
+                    finalScoresContainer.innerHTML += scoreCard;
+                });
+                
+                showModal();
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+            });
+
+            closeModalBtn.addEventListener('click', hideModal);
+            
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    hideModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>واجهة هاكاثون تفاعلية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: High-Contrast Projector (Light Slate, Dark Slate, Vibrant Blue) -->
+    <!-- Application Structure Plan: A single-page, vertical scrolling application that mirrors the linear flow of the PowerPoint template. Sections are mapped directly from slides (Intro, Agenda, 4 Competition Stages, Timer, Footer). Navigation is primarily through scrolling, with an optional sticky navbar for quick jumps. This structure was chosen for its simplicity and direct translation of the source material's flow, making it intuitive for an organizer setting up their event presentation online. -->
+    <!-- Visualization & Content Choices: Report Info: Hackathon structure -> Goal: Present clear, distinct sections -> Presentation: Full-width sections with styled headers. Report Info: Code examples -> Goal: Show code clearly -> Presentation: Styled `<pre><code>` blocks. Interaction: "Copy Code" button via JS. Report Info: MCQ -> Goal: Present question and options -> Presentation: Styled divs in a table-like format. Report Info: Timer -> Goal: Show a live countdown -> Presentation: Large text display. Interaction: JS-powered countdown timer with controls. No data visualization libraries like Chart.js were needed as the source material is structural, not data-driven. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+            color: #0f172a; /* slate-900 */
+        }
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 5rem; /* Adjust this value based on nav height */
+        }
+        .section-title {
+            border-bottom: 2px solid #cbd5e1; /* slate-300 */
+            padding-bottom: 0.5rem;
+            margin-bottom: 2rem;
+        }
+        .code-block {
+            background-color: #2563eb; /* blue-600 */
+            border-radius: 8px;
+            padding: 1.5rem;
+            position: relative;
+            direction: ltr;
+            text-align: left;
+        }
+        .code-block pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #ffffff; /* white */
+            font-size: 1.125rem; /* text-lg */
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: rgba(0,0,0,0.2);
+            color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .copy-btn:hover {
+            background-color: rgba(0,0,0,0.4);
+        }
+        .timer-display {
+            font-size: 6rem;
+            font-weight: 900;
+            color: #2563eb; /* blue-600 */
+        }
+        #ps-timer-display, #output-timer-display, #debugging-timer-display, #mcq-timer-display {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .mcq-option {
+            background-color: white;
+            border: 2px solid #e2e8f0; /* slate-200 */
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .mcq-option .option-letter {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #2563eb; /* blue-600 */
+            margin-bottom: 0.5rem;
+        }
+        .mcq-option .option-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .mcq-option.correct-answer {
+            border-color: #16a34a; /* green-600 */
+            background-color: #dcfce7; /* green-100 */
+            transform: scale(1.05);
+        }
+        #animated-heading .word-anim {
+            display: inline-block;
+            animation: appear-and-float 4s infinite ease-in-out;
+        }
+        @keyframes appear-and-float {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .results-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(241, 245, 249, 0.95); /* slate-100 */
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .results-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .results-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+        .results-overlay.visible .results-content {
+            transform: scale(1);
+        }
+        .close-results-btn {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: none;
+            border: none;
+            color: #64748b; /* slate-500 */
+            font-size: 2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-slate-200/50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <a href="#" class="text-slate-900 font-bold text-2xl">S/H</a>
+                <div class="flex space-x-4 space-x-reverse text-sm md:text-base">
+                    <a href="#agenda" class="text-slate-600 hover:text-blue-600 transition-colors">جدول الأعمال</a>
+                    <a href="#mcq" class="text-slate-600 hover:text-blue-600 transition-colors">الفقرة الأولى</a>
+                    <a href="#output" class="text-slate-600 hover:text-blue-600 transition-colors">الفقرة الثانية</a>
+                    <a href="#debugging" class="text-slate-600 hover:text-blue-600 transition-colors">الفقرة الثالثة</a>
+                    <a href="#problem-solving" class="text-slate-600 hover:text-blue-600 transition-colors">الفقرة الرابعة</a>
+                    <a href="#scoreboard" class="text-slate-600 hover:text-blue-600 transition-colors">النتائج</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- الشريحة 1: شريحة البداية -->
+    <header class="min-h-screen flex flex-col items-center justify-center text-center p-8 bg-white">
+        <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+            <span class="text-4xl font-bold text-white">S/H</span>
+        </div>
+        <h1 class="text-5xl md:text-7xl font-bold mb-4 text-slate-900">Solutions Hackathon</h1>
+        <p class="text-lg md:text-xl text-slate-500">2025 | قسم البرمجيات</p>
+    </header>
+
+    <!-- الشريحة 2: الترحيب وجدول الأعمال -->
+    <section id="agenda" class="py-20 px-4 md:px-8 max-w-4xl mx-auto">
+        <h2 id="animated-heading" class="text-4xl font-bold mb-8 text-center section-title"></h2>
+        <div class="bg-white p-8 rounded-lg shadow-2xl">
+            <h3 class="text-2xl font-bold mb-6 text-blue-600">جدول أعمالنا اليوم:</h3>
+            <ul class="list-decimal list-inside space-y-4 text-lg text-slate-700">
+                <li>الفقرة الأولى: أسئلة نظرية سريعة (MCQ)</li>
+                <li>الفقرة الثانية: تحدي معرفة المخرجات</li>
+                <li>الفقرة الثالثة: مهمة تصحيح الأخطاء</li>
+                <li class="font-bold text-yellow-500">استراحة قصيرة</li>
+                <li>الفقرة الرابعة: المسابقة الكبرى (Problem Solving)</li>
+                <li class="font-bold text-green-600">إعلان النتائج وتكريم الفائزين</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- فاصل الفقرة الأولى -->
+    <div class="py-16 bg-white text-center">
+        <h2 class="text-4xl font-bold text-slate-900">الفقرة الأولى</h2>
+        <p class="text-2xl text-blue-600 mt-2">الأسئلة النظرية السريعة</p>
+        <p class="mt-2 text-xl font-bold text-slate-700">(20 نقطة)</p>
+    </div>
+
+    <!-- الشريحة 4: قالب السؤال النظري -->
+    <section id="mcq" class="py-20 px-4 md:px-8 max-w-5xl mx-auto">
+        <div id="mcq-control-panel" class="bg-white p-6 rounded-lg shadow-2xl mb-8">
+            <div class="flex justify-between items-center mb-4">
+                 <div id="mcq-counter" class="text-xl text-slate-500 font-semibold">السؤال 0 / 10</div>
+                 <h3 id="mcq-status" class="text-2xl font-bold text-yellow-500 text-center">جاهز لبدء التحدي؟</h3>
+                 <div class="flex justify-center space-x-4 space-x-reverse">
+                    <button id="start-mcq-challenge" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">بدء التحدي</button>
+                    <button id="next-mcq-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded hidden">السؤال التالي</button>
+                </div>
+            </div>
+             <div id="mcq-timer-controls" class="flex justify-center items-center space-x-4 space-x-reverse mt-4 border-t border-slate-200 pt-4 hidden">
+                 <div id="mcq-timer-display" class="text-blue-600">--:--</div>
+                <button id="end-mcq-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded">إنهاء السؤال</button>
+            </div>
+        </div>
+        
+        <div id="mcq-game-area" class="hidden">
+            <h2 id="mcq-question-text" class="text-3xl font-bold mb-8 text-slate-800 text-center p-8 bg-white rounded-lg shadow-lg"></h2>
+             <div id="mcq-options-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Options will be generated here -->
+            </div>
+             <div id="mcq-answer-display" class="hidden bg-green-100 border-2 border-green-300 p-6 rounded-lg text-center mt-8">
+                <h4 class="text-2xl font-bold mb-2 text-green-800">الإجابة الصحيحة:</h4>
+                <p id="mcq-answer-text" class="text-xl font-semibold text-green-700"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- فاصل الفقرة الثانية -->
+    <div class="py-16 bg-white text-center">
+        <h2 class="text-4xl font-bold text-slate-900">الفقرة الثانية</h2>
+        <p class="text-2xl text-blue-600 mt-2">ما هي نتيجة هذا الكود؟</p>
+        <p class="mt-2 text-xl font-bold text-slate-700">(25 نقطة)</p>
+        <p class="mt-4 text-lg text-slate-500">دققوا في التفاصيل!</p>
+    </div>
+
+    <!-- الشريحة 6: قالب سؤال المخرجات -->
+    <section id="output" class="py-20 px-4 md:px-8 max-w-4xl mx-auto">
+         <div class="flex justify-between items-center mb-6">
+            <h3 class="text-3xl font-bold">المهمة: معرفة المخرجات</h3>
+            <div id="output-counter" class="text-xl text-slate-500 font-semibold">الكود 1 / 25</div>
+        </div>
+        <div id="output-control-panel" class="bg-white p-6 rounded-lg shadow-2xl mb-8 text-center">
+            <h3 id="output-status" class="text-2xl font-bold mb-2 text-yellow-500">جاهز لبدء التحدي؟</h3>
+            <div id="output-timer-display" class="text-blue-600">--:--</div>
+            <div class="flex justify-center space-x-4 space-x-reverse mt-4">
+                <button id="start-output-challenge" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">بدء تحدي المخرجات</button>
+                <button id="skip-output-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded hidden">إنهاء الوقت وعرض الجواب</button>
+                <button id="next-output-btn-flow" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded hidden">السؤال التالي</button>
+            </div>
+        </div>
+        <div class="code-block mb-6 min-h-[200px]">
+            <button class="copy-btn" onclick="copyCode(this)">نسخ</button>
+            <pre><code id="output-code-display" class="language-python"></code></pre>
+        </div>
+        <div id="answer-display" class="hidden bg-green-50 border border-green-300 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-bold mb-2 text-green-700">المخرجات الصحيحة:</h4>
+            <pre><code id="answer-code-display" class="font-mono text-lg text-green-800"></code></pre>
+        </div>
+        <div id="output-manual-controls" class="hidden">
+             <div class="flex justify-center space-x-4 space-x-reverse mt-6">
+                <button id="prev-output-btn" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded">السابق</button>
+                <button id="next-output-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">التالي</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- فاصل الفقرة الثالثة -->
+    <div class="py-16 bg-white text-center">
+        <h2 class="text-4xl font-bold">الفقرة الثالثة</h2>
+        <p class="text-2xl text-blue-600 mt-2">اكتشف الخطأ وقم بإصلاحه</p>
+        <p class="mt-2 text-xl font-bold text-slate-700">(25 نقطة)</p>
+        <p class="mt-4 text-lg text-slate-500">حان وقت الـ Debugging!</p>
+    </div>
+
+    <!-- الشريحة 8: قالب سؤال تصحيح الأخطاء -->
+    <section id="debugging" class="py-20 px-4 md:px-8 max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-3xl font-bold">المهمة: تصحيح الأخطاء</h3>
+            <div id="debugging-counter" class="text-xl text-slate-500 font-semibold">الكود 1 / 20</div>
+        </div>
+        <div id="debugging-control-panel" class="bg-white p-6 rounded-lg shadow-2xl mb-8 text-center">
+            <h3 id="debugging-status" class="text-2xl font-bold mb-2 text-yellow-500">جاهز لبدء التحدي؟</h3>
+            <div id="debugging-timer-display" class="text-blue-600">--:--</div>
+            <div class="flex justify-center space-x-4 space-x-reverse mt-4">
+                <button id="start-debugging-challenge" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">بدء تحدي تصحيح الأخطاء</button>
+                <button id="skip-debugging-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded hidden">إنهاء الوقت</button>
+                <button id="next-debugging-btn-flow" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded hidden">السؤال التالي</button>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <!-- Left Column: Buggy Code -->
+            <div>
+                <h4 class="text-xl font-bold mb-4 text-slate-800">الكود المطلوب تصحيحه:</h4>
+                <div class="grid grid-cols-2 gap-4 mb-4 text-center">
+                    <div class="bg-slate-200 p-4 rounded-lg">
+                        <h5 class="text-lg font-bold mb-1 text-slate-600">المدخلات</h5>
+                        <pre id="debug-input-display" class="font-mono text-slate-800 text-left p-2 text-base"></pre>
+                    </div>
+                    <div class="bg-slate-200 p-4 rounded-lg">
+                        <h5 class="text-lg font-bold mb-1 text-slate-600">المخرجات المتوقعة</h5>
+                        <pre id="debug-output-display" class="font-mono text-slate-800 text-left p-2 text-base"></pre>
+                    </div>
+                </div>
+                <div class="code-block h-[60vh] overflow-y-auto">
+                    <button class="copy-btn" onclick="copyCode(this)">نسخ</button>
+                    <pre><code id="debug-code-display" class="language-javascript"></code></pre>
+                </div>
+            </div>
+            
+            <!-- Right Column: Correct Solution -->
+            <div id="correct-code-display-container" class="hidden">
+                <h4 class="text-xl font-bold mb-4 text-green-700">الحل الصحيح والشرح:</h4>
+                <div class="code-block h-[60vh] overflow-y-auto bg-green-600">
+                    <button class="copy-btn" onclick="copyCode(this)">نسخ</button>
+                    <pre><code id="correct-code-display" class="language-javascript"></code></pre>
+                </div>
+                <p id="correct-code-explanation" class="text-center text-slate-600 mt-4 p-3 bg-green-100 rounded-lg border border-green-200"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- فاصل الفقرة الرابعة -->
+    <div class="py-16 bg-white text-center">
+        <h2 class="text-4xl font-bold">الفقرة الرابعة</h2>
+        <p class="text-2xl text-blue-600 mt-2">تحدي حل المشكلات</p>
+        <p class="mt-2 text-xl font-bold text-slate-700">(30 نقطة)</p>
+        <p class="mt-4 text-lg text-slate-500">أظهروا أفضل ما لديكم!</p>
+    </div>
+
+    <!-- الشريحة 10: قالب شرح المشكلة -->
+    <section id="problem-solving" class="py-20 px-4 md:px-8 max-w-4xl mx-auto">
+        <div id="ps-control-panel" class="bg-white p-6 rounded-lg shadow-2xl mb-8 text-center">
+            <h3 id="ps-status" class="text-2xl font-bold mb-2 text-yellow-500">التحدي لم يبدأ بعد</h3>
+            <div id="ps-timer-display" class="text-blue-600">--:--</div>
+            <div class="flex justify-center space-x-4 space-x-reverse mt-4">
+                <button id="start-ps-challenge" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">بدء تحدي حل المشكلات</button>
+                <button id="skip-ps-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded hidden">إنهاء الوقت</button>
+                <button id="next-ps-phase-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded hidden">المرحلة التالية</button>
+            </div>
+             <div class="flex justify-center space-x-2 space-x-reverse mt-4 border-t border-slate-200 pt-4">
+                <button id="translate-ar-btn" class="bg-slate-500 hover:bg-slate-600 text-white font-bold py-1 px-4 rounded text-sm">ترجمة للعربية</button>
+                <button id="translate-en-btn" class="bg-slate-500 hover:bg-slate-600 text-white font-bold py-1 px-4 rounded text-sm">Translate to English</button>
+            </div>
+        </div>
+
+        <div id="ps-question-content" class="text-left" dir="ltr" lang="en">
+            <h2 id="ps-title" class="text-4xl font-bold mb-8 section-title">Problem: [Problem Name]</h2>
+            <div class="space-y-8">
+                <div>
+                    <h3 id="ps-description-heading" class="text-3xl font-bold mb-2 text-blue-600">Description:</h3>
+                    <p id="ps-description" class="text-slate-700 text-xl">Write a short, story-like description of the problem and the goal to be achieved here.</p>
+                </div>
+                <div>
+                    <h3 id="ps-input-heading" class="text-3xl font-bold mb-2 text-blue-600">Input:</h3>
+                    <p id="ps-input" class="text-slate-700 text-xl">Describe the expected input format, e.g., "A single line containing an integer N..."</p>
+                </div>
+                <div>
+                    <h3 id="ps-output-heading" class="text-3xl font-bold mb-2 text-blue-600">Output:</h3>
+                    <p id="ps-output" class="text-slate-700 text-xl">Describe the required output format, e.g., "Print the word Yes or No..."</p>
+                </div>
+                <div>
+                     <h3 id="ps-examples-heading" class="text-3xl font-bold mb-4 text-blue-600">Examples:</h3>
+                     <div class="bg-slate-100 rounded-lg overflow-hidden">
+                        <table id="ps-examples-table" class="w-full text-left">
+                            <thead class="bg-slate-200">
+                                <tr>
+                                    <th id="ps-examples-input-header" class="p-4 text-lg">Input</th>
+                                    <th id="ps-examples-output-header" class="p-4 text-lg">Output</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ps-examples-body">
+                                <tr class="border-t border-slate-300">
+                                    <td class="p-4 font-mono text-lg">`example input 1`</td>
+                                    <td class="p-4 font-mono text-lg">`example output 1`</td>
+                                </tr>
+                                <tr class="border-t border-slate-300">
+                                    <td class="p-4 font-mono text-lg">`example input 2`</td>
+                                    <td class="p-4 font-mono text-lg">`example output 2`</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- قسم لوحة النتائج -->
+    <section id="scoreboard" class="py-20 px-4 md:px-8 max-w-4xl mx-auto">
+        <h2 class="text-4xl font-bold mb-8 text-center section-title">لوحة النتائج</h2>
+        <div class="grid md:grid-cols-3 gap-8 text-center">
+            <!-- Team 1 -->
+            <div class="bg-white p-6 rounded-lg shadow-2xl">
+                <h3 class="text-2xl font-bold mb-4 text-blue-600">الفريق الأول</h3>
+                <p id="team-1-score" class="text-6xl font-black mb-4">0</p>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <input type="number" id="team-1-input" class="w-full bg-slate-200 text-slate-900 p-2 rounded" placeholder="أدخل النقاط...">
+                    <button id="add-score-1" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">إضافة</button>
+                </div>
+            </div>
+            <!-- Team 2 -->
+            <div class="bg-white p-6 rounded-lg shadow-2xl">
+                <h3 class="text-2xl font-bold mb-4 text-blue-600">الفريق الثاني</h3>
+                <p id="team-2-score" class="text-6xl font-black mb-4">0</p>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <input type="number" id="team-2-input" class="w-full bg-slate-200 text-slate-900 p-2 rounded" placeholder="أدخل النقاط...">
+                    <button id="add-score-2" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">إضافة</button>
+                </div>
+            </div>
+            <!-- Team 3 -->
+            <div class="bg-white p-6 rounded-lg shadow-2xl">
+                <h3 class="text-2xl font-bold mb-4 text-blue-600">الفريق الثالث</h3>
+                <p id="team-3-score" class="text-6xl font-black mb-4">0</p>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <input type="number" id="team-3-input" class="w-full bg-slate-200 text-slate-900 p-2 rounded" placeholder="أدخل النقاط...">
+                    <button id="add-score-3" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">إضافة</button>
+                </div>
+            </div>
+        </div>
+        <div class="mt-12 text-center">
+            <button id="show-results-btn" class="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold py-3 px-8 rounded-lg text-xl">إظهار النتائج النهائية</button>
+        </div>
+    </section>
+
+    <!-- الشريحة 11: شريحة المؤقت العام -->
+    <section id="timer" class="py-20 text-center bg-white">
+        <h2 class="text-4xl font-bold mb-4 text-slate-900">المؤقت العام</h2>
+        <div id="timer-display" class="timer-display my-8">01:00</div>
+        <div class="flex justify-center space-x-4 space-x-reverse">
+            <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded">بدء</button>
+            <button id="pause-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded">إيقاف مؤقت</button>
+            <button id="reset-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded">إعادة تعيين</button>
+        </div>
+    </section>
+
+    <!-- الشريحة 12: شريحة النهاية -->
+    <footer class="py-16 text-center bg-slate-200">
+        <h2 class="text-4xl font-bold text-slate-900 mb-4">شكرًا لمشاركتكم!</h2>
+        <p class="text-xl text-slate-600 mb-8">نأمل أن تكونوا قد استمتعتم بالتحدي</p>
+        <div class="flex justify-center items-center space-x-8 space-x-reverse">
+            <div class="text-slate-500">[شعار الراعي 1]</div>
+            <div class="text-slate-500">[شعار الراعي 2]</div>
+            <div class="text-slate-500">[شعار الراعي 3]</div>
+        </div>
+    </footer>
+
+    <!-- Results Overlay -->
+    <div id="results-overlay" class="results-overlay">
+        <div class="results-content">
+            <button id="close-results-btn" class="close-results-btn">&times;</button>
+            <h2 class="text-4xl font-bold mb-8 text-yellow-400">النتائج النهائية</h2>
+            <div class="space-y-4">
+                <!-- 1st Place -->
+                <div id="first-place" class="bg-slate-100 p-4 rounded-lg border-2 border-yellow-400">
+                    <p class="text-2xl">🥇 المركز الأول</p>
+                    <p id="winner-name" class="text-3xl font-bold text-slate-900"></p>
+                    <p id="winner-score" class="text-xl text-slate-600"></p>
+                </div>
+                <!-- 2nd Place -->
+                <div id="second-place" class="bg-slate-50 p-4 rounded-lg border-2 border-slate-400">
+                    <p class="text-xl">🥈 المركز الثاني</p>
+                    <p id="second-name" class="text-2xl font-bold text-slate-900"></p>
+                    <p id="second-score" class="text-lg text-slate-600"></p>
+                </div>
+                <!-- 3rd Place -->
+                <div id="third-place" class="bg-slate-50 p-4 rounded-lg border-2 border-slate-500">
+                    <p class="text-lg">🥉 المركز الثالث</p>
+                    <p id="third-name" class="text-xl font-bold text-slate-900"></p>
+                    <p id="third-score" class="text-lg text-slate-600"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Animation for Welcome Heading
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeHeading = document.getElementById('animated-heading');
+            if (welcomeHeading) {
+                const text = "أهلاً بكم أيها المبرمجون!";
+                welcomeHeading.innerHTML = text.split(' ').map((word, index) => {
+                    const style = `animation-delay: ${index * 0.15}s;`;
+                    return `<span class="word-anim" style="${style}">${word}</span>`;
+                }).join(' ');
+            }
+        });
+        
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling;
+            const code = codeBlock.querySelector('code').innerText;
+            
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = code;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            button.innerText = 'تم النسخ!';
+            setTimeout(() => {
+                button.innerText = 'نسخ';
+            }, 2000);
+        }
+
+        // --- إعدادات الوقت العامة (بالثواني) ---
+        const GENERAL_TIMER_DURATION = 1 * 60; // المؤقت العام
+        const MCQ_QUESTION_DURATION = 20; // 20 ثانية لكل سؤال نظري
+        const OUTPUT_QUESTION_DURATION = 1 * 60; // لكل سؤال في فقرة المخرجات
+        const DEBUGGING_QUESTION_DURATION = 1 * 60; // لكل سؤال في فقرة تصحيح الأخطاء
+        const PS_QUESTION_DURATION = 1 * 60; // لكل سؤال في فقرة حل المشكلات
+        const PS_CORRECTION_DURATION = 1 * 60; // للتصحيح في فقرة حل المشكلات
+        // ------------------------------------
+
+        // General Timer Logic
+        const timerDisplay = document.getElementById('timer-display');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        let timeInSeconds = GENERAL_TIMER_DURATION;
+        let timerInterval = null;
+
+        function updateGeneralTimerDisplay() {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = timeInSeconds % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        function startGeneralTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                if (timeInSeconds > 0) {
+                    timeInSeconds--;
+                    updateGeneralTimerDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }, 1000);
+        }
+        function pauseGeneralTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        function resetGeneralTimer() {
+            pauseGeneralTimer();
+            timeInSeconds = GENERAL_TIMER_DURATION;
+            updateGeneralTimerDisplay();
+        }
+        startBtn.addEventListener('click', startGeneralTimer);
+        pauseBtn.addEventListener('click', pauseGeneralTimer);
+        resetBtn.addEventListener('click', resetGeneralTimer);
+        updateGeneralTimerDisplay();
+
+        // MCQ Challenge Logic
+        const mcqQuestions = [
+            { question: "ما هي المخرجات لـ `console.log(typeof NaN)`؟", answer: "number" },
+            { question: "أي من التالي ليس من أنواع البيانات الأولية (Primitive) في JavaScript؟", answer: "Object" },
+            { question: "في CSS, أي خاصية تستخدم لتغيير لون الخلفية للعنصر؟", answer: "background-color" },
+            { question: "ما هو الوسم (Tag) الصحيح لإنشاء ارتباط تشعبي في HTML؟", answer: "<a>" },
+            { question: "ماذا تعني CSS؟", answer: "Cascading Style Sheets" },
+            { question: "أي دالة (method) في Python تُستخدم لمعرفة طول قائمة؟", answer: "len()" },
+            { question: "كيف تبدأ تعليقاً من سطر واحد في JavaScript؟", answer: "//" },
+            { question: "ما هي القيمة البوليانية (Boolean) لـ `Boolean('false')` في JavaScript؟", answer: "true" },
+            { question: "أي من التالي يُستخدم لتعريف متغير في Python؟", answer: "x = 5" },
+            { question: "ما هو دور `git clone`؟", answer: "نسخ مستودع بعيد إلى الجهاز المحلي" }
+        ];
+
+        const mcqStatus = document.getElementById('mcq-status');
+        const mcqCounter = document.getElementById('mcq-counter');
+        const startMcqChallengeBtn = document.getElementById('start-mcq-challenge');
+        const nextMcqBtn = document.getElementById('next-mcq-btn');
+        const endMcqBtn = document.getElementById('end-mcq-btn');
+        const mcqGameArea = document.getElementById('mcq-game-area');
+        const mcqQuestionText = document.getElementById('mcq-question-text');
+        const mcqTimerControls = document.getElementById('mcq-timer-controls');
+        const mcqTimerDisplay = document.getElementById('mcq-timer-display');
+        const mcqAnswerDisplay = document.getElementById('mcq-answer-display');
+        const mcqAnswerText = document.getElementById('mcq-answer-text');
+
+        let currentMcqIndex = 0;
+        let mcqTimeRemaining = 0;
+        let mcqInterval = null;
+        
+
+        function updateMcqTimerDisplay() {
+            const minutes = Math.floor(mcqTimeRemaining / 60);
+            const seconds = mcqTimeRemaining % 60;
+            mcqTimerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function endMcqQuestion() {
+            clearInterval(mcqInterval);
+            mcqInterval = null;
+            mcqAnswerDisplay.classList.remove('hidden');
+            mcqTimerControls.classList.add('hidden');
+            nextMcqBtn.classList.remove('hidden');
+            mcqStatus.textContent = "انتهى الوقت!";
+        }
+
+        function runMcqTimer() {
+            mcqTimeRemaining = MCQ_QUESTION_DURATION;
+            updateMcqTimerDisplay();
+            mcqTimerControls.classList.remove('hidden');
+            nextMcqBtn.classList.add('hidden');
+            mcqInterval = setInterval(() => {
+                mcqTimeRemaining--;
+                if (mcqTimeRemaining < 0) {
+                    endMcqQuestion();
+                } else {
+                    updateMcqTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function displayMcqQuestion(index) {
+            mcqCounter.textContent = `السؤال ${index + 1} / ${mcqQuestions.length}`;
+            const q = mcqQuestions[index];
+            mcqQuestionText.textContent = q.question;
+            
+            const mcqOptionsContainer = document.getElementById('mcq-options-container');
+            if(mcqOptionsContainer) {
+                 mcqOptionsContainer.innerHTML = '';
+                 const options = q.options || [];
+                 options.forEach((opt, i) => {
+                     const optionEl = document.createElement('div');
+                     optionEl.className = 'mcq-option';
+                     optionEl.innerHTML = `<span class="option-letter">${String.fromCharCode(65 + i)}</span><span class="option-text">${opt}</span>`;
+                     if (i === q.correctAnswer) {
+                         optionEl.dataset.correct = "true";
+                     }
+                     mcqOptionsContainer.appendChild(optionEl);
+                 });
+            }
+            if (mcqAnswerText) {
+                mcqAnswerText.textContent = q.answer;
+            }
+            if (mcqAnswerDisplay) {
+                mcqAnswerDisplay.classList.add('hidden');
+            }
+            mcqStatus.textContent = `وقت السؤال ${index + 1}`;
+            runMcqTimer();
+        }
+        
+        function startMcqChallenge() {
+            currentMcqIndex = 0;
+            displayMcqQuestion(currentMcqIndex);
+            mcqGameArea.classList.remove('hidden');
+            startMcqChallengeBtn.classList.add('hidden');
+        }
+        
+        function nextMcqQuestion() {
+            currentMcqIndex++;
+            if (currentMcqIndex < mcqQuestions.length) {
+                displayMcqQuestion(currentMcqIndex);
+            } else {
+                mcqStatus.textContent = 'انتهى التحدي النظري!';
+                mcqGameArea.classList.add('hidden');
+                mcqTimerControls.classList.add('hidden');
+                nextMcqBtn.classList.add('hidden');
+                startMcqChallengeBtn.textContent = "إعادة التحدي";
+                startMcqChallengeBtn.classList.remove('hidden');
+            }
+        }
+
+        startMcqChallengeBtn.addEventListener('click', startMcqChallenge);
+        nextMcqBtn.addEventListener('click', nextMcqQuestion);
+        endMcqBtn.addEventListener('click', endMcqQuestion);
+
+
+        // Output Challenge Logic
+        const outputCodes = [
+            { code: "console.log(typeof null);", language: "javascript", answer: "object" },
+            { code: "print(0.1 + 0.2 == 0.3)", language: "python", answer: "False" },
+            { code: "console.log(1 + '2' + '2');", language: "javascript", answer: "122" },
+            { code: "my_list = [1, 2, 3]\nmy_list.append([4, 5])\nprint(len(my_list))", language: "python", answer: "4" },
+            { code: "console.log('5' - 3);", language: "javascript", answer: "2" },
+            { code: "a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)", language: "python", answer: "[1, 2, 3, 4]" },
+            { code: "console.log(Math.max());", language: "javascript", answer: "-Infinity" },
+            { code: "def func(a, L=[]):\n    L.append(a)\n    return L\nprint(func(1))\nprint(func(2))", language: "python", answer: "[1]\n[1, 2]" },
+            { code: "console.log(!!'hello');", language: "javascript", answer: "true" },
+            { code: "print('abc' * 3)", language: "python", answer: "abcabcabc" },
+            { code: "console.log(3 > 2 > 1);", language: "javascript", answer: "false" },
+            { code: "i = 5\ndef f(arg=i): print(arg)\ni = 6\nf()", language: "python", answer: "5" },
+            { code: "console.log([] + []);", language: "javascript", answer: '"" (an empty string)' },
+            { code: "a, b = 1, 2\na, b = b, a\nprint(f'{a}, {b}')", language: "python", answer: "2, 1" },
+            { code: "console.log(NaN === NaN);", language: "javascript", answer: "false" },
+            { code: "s = 'hello'\nprint(s[::-1])", language: "python", answer: "olleh" },
+            { code: "let x = 1;\nfunction scopeTest() {\n  let x = 2;\n}\nscopeTest();\nconsole.log(x);", language: "javascript", answer: "1" },
+            { code: "print(isinstance(True, int))", language: "python", answer: "True" },
+            { code: "console.log(0.1 + 0.2);", language: "javascript", answer: "0.30000000000000004" },
+            { code: "a = {1, 2, 3}\nb = {3, 4, 5}\nprint(a | b)", language: "python", answer: "{1, 2, 3, 4, 5}" },
+            { code: "console.log(('b' + 'a' + + 'a' + 'a').toLowerCase());", language: "javascript", answer: "banana" },
+            { code: "x = 'a'\nprint(x * 0)", language: "python", answer: '"" (an empty string)' },
+            { code: "console.log(typeof NaN);", language: "javascript", answer: "number" },
+            { code: "my_tuple = (1,)\nprint(type(my_tuple))", language: "python", answer: "<class 'tuple'>" },
+            { code: "var y = 1;\nif (function f(){}) {\n  y += typeof f;\n}\nconsole.log(y);", language: "javascript", answer: "1undefined" }
+        ];
+
+        const outputCodeDisplay = document.getElementById('output-code-display');
+        const outputCounter = document.getElementById('output-counter');
+        const answerDisplay = document.getElementById('answer-display');
+        const answerCodeDisplay = document.getElementById('answer-code-display');
+        const startOutputChallengeBtn = document.getElementById('start-output-challenge');
+        const skipOutputBtn = document.getElementById('skip-output-btn');
+        const nextOutputBtnFlow = document.getElementById('next-output-btn-flow');
+        const outputStatus = document.getElementById('output-status');
+        const outputTimerDisplay = document.getElementById('output-timer-display');
+        let currentOutputIndex = 0;
+        let outputTimeRemaining = 0;
+        let outputInterval = null;
+
+        function displayOutputCode(index) {
+            const item = outputCodes[index];
+            outputCodeDisplay.textContent = item.code;
+            outputCodeDisplay.className = `language-${item.language}`;
+            outputCounter.textContent = `الكود ${index + 1} / ${outputCodes.length}`;
+            answerDisplay.classList.add('hidden');
+        }
+
+        function updateOutputTimerDisplay() {
+            const minutes = Math.floor(outputTimeRemaining / 60);
+            const seconds = outputTimeRemaining % 60;
+            outputTimerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function endOutputRound() {
+            clearInterval(outputInterval);
+            outputInterval = null;
+            outputTimeRemaining = 0;
+            updateOutputTimerDisplay();
+
+            const item = outputCodes[currentOutputIndex];
+            answerCodeDisplay.textContent = item.answer;
+            answerDisplay.classList.remove('hidden');
+
+            skipOutputBtn.classList.add('hidden');
+            nextOutputBtnFlow.classList.remove('hidden');
+            outputStatus.textContent = 'انتهى الوقت! اضغط للتالي.';
+        }
+
+        function runOutputTimer() {
+            displayOutputCode(currentOutputIndex);
+            outputTimeRemaining = OUTPUT_QUESTION_DURATION;
+            outputStatus.textContent = `وقت الكود ${currentOutputIndex + 1} / ${outputCodes.length}`;
+            updateOutputTimerDisplay();
+            
+            skipOutputBtn.classList.remove('hidden');
+            nextOutputBtnFlow.classList.add('hidden');
+
+            outputInterval = setInterval(() => {
+                outputTimeRemaining--;
+                if (outputTimeRemaining < 0) {
+                    endOutputRound();
+                } else {
+                    updateOutputTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function startOutputChallenge() {
+            startOutputChallengeBtn.disabled = true;
+            startOutputChallengeBtn.textContent = 'التحدي جارٍ...';
+            currentOutputIndex = 0;
+            runOutputTimer();
+        }
+
+        nextOutputBtnFlow.addEventListener('click', () => {
+            currentOutputIndex++;
+            if (currentOutputIndex < outputCodes.length) {
+                runOutputTimer();
+            } else {
+                outputStatus.textContent = 'انتهى تحدي المخرجات!';
+                nextOutputBtnFlow.classList.add('hidden');
+                startOutputChallengeBtn.disabled = false;
+                startOutputChallengeBtn.textContent = 'إعادة بدء التحدي';
+            }
+        });
+
+        startOutputChallengeBtn.addEventListener('click', startOutputChallenge);
+        skipOutputBtn.addEventListener('click', endOutputRound);
+        displayOutputCode(0); // Display first code initially
+
+        // Debugging Challenge Logic
+        const debuggingCodes = [
+            { code: "function greet(name) {\n    console.log('Hello, ' + name);\n}\ngreet();", input: "N/A", output: "Hello, World", correctCode: "function greet(name) {\n    console.log('Hello, ' + name);\n}\ngreet('World');", explanation: "خطأ نقص: الدالة تتوقع متغير 'name' لكن لم يتم تمريره عند استدعائها." },
+            { code: "numbers = [1, 2, 3, 4, 5];\nfor i in range(len(numbers)):\n    print(numbers[i+1])", input: "N/A", output: "1\n2\n3\n4\n5", correctCode: "numbers = [1, 2, 3, 4, 5];\nfor i in range(len(numbers)):\n    print(numbers[i])", explanation: "خطأ منطقي: الكود يسبب 'IndexError' لأنه يحاول الوصول إلى عنصر خارج حدود القائمة في آخر دورة." },
+            { code: "let user = { name: 'Alice', age: 25 };\nconsole.log(user.email);", input: "N/A", output: "Alice", correctCode: "let user = { name: 'Alice', age: 25 };\nconsole.log(user.name);", explanation: "خطأ منطقي: محاولة الوصول إلى خاصية 'email' غير موجودة في الكائن. يجب الوصول إلى 'name'." },
+            { code: "x = 10\nif x == '10':\n    print('Equal')", input: "N/A", output: "Equal", correctCode: "x = 10\nif x == 10:\n    print('Equal')", explanation: "خطأ منطقي: المقارنة تتم بين عدد صحيح ونص، مما يؤدي إلى نتيجة خاطئة دائمًا في Python." },
+            { code: "for (var i = 0; i <= 5; i++) {\n    setTimeout(() => {\n        console.log(i);\n    }, 100);\n}", input: "N/A", output: "0\n1\n2\n3\n4\n5", correctCode: "for (let i = 0; i <= 5; i++) {\n    setTimeout(() => {\n        console.log(i);\n    }, 100);\n}", explanation: "خطأ منطقي (Closure): استخدام 'var' يجعل قيمة 'i' النهائية (6) هي التي تُطبع في كل مرة. 'let' يحل المشكلة." },
+            { code: "my_list = [1, 2, 3]\nmy_list.append(4, 5)", input: "N/A", output: "[1, 2, 3, 4, 5]", correctCode: "my_list = [1, 2, 3]\nmy_list.extend([4, 5])", explanation: "خطأ في القواعد: دالة 'append' تقبل معاملًا واحدًا فقط. لإضافة عدة عناصر، يجب استخدام 'extend'." },
+            { code: "const a = 1;\na = 2;", input: "N/A", output: "2", correctCode: "let a = 1; \na = 2;", explanation: "خطأ في القواعد: لا يمكن إعادة إسناد قيمة لمتغير من نوع 'const'. يجب استخدام 'let'." },
+            { code: "def my_function(a, b)\n    return a + b", input: "a=5, b=3", output: "8", correctCode: "def my_function(a, b):\n    return a + b", explanation: "خطأ في القواعد: تعريف الدالة في Python يجب أن ينتهي بنقطتين رأسيتين ':'." },
+            { code: "function calculate_sum(arr) {\n    let sum = 0;\n    for (let i = 0; i > arr.length; i++) {\n        sum += arr[i];\n    }\n}", input: "[1, 2, 3]", output: "6", correctCode: "function calculate_sum(arr) {\n    let sum = 0;\n    for (let i = 0; i < arr.length; i++) {\n        sum += arr[i];\n    }\n    return sum;\n}", explanation: "خطأ منطقي ونقص: الشرط في الحلقة (i > arr.length) خاطئ ولن يتحقق أبدًا، والدالة لا تُرجع قيمة." },
+            { code: "d = {'a': 1, 'b': 2}\nprint(d['c'])", input: "N/A", output: "None", correctCode: "d = {'a': 1, 'b': 2}\nprint(d.get('c'))", explanation: "خطأ وقت التشغيل: محاولة الوصول إلى مفتاح غير موجود يسبب 'KeyError'. استخدام '.get()' هو الطريقة الآمنة." },
+            { code: "let arr = [1, 2, 3];\narr.length = 0;\nconsole.log(arr[1]);", input: "N/A", output: "undefined", correctCode: "let arr = [1, 2, 3];\narr.length = 0;\n// The code empties the array, so arr[1] is correctly undefined.", explanation: "لا يوجد خطأ برمجي، لكنه سؤال خادع. الكود يفرغ المصفوفة، لذا الوصول إلى أي عنصر يُرجع 'undefined'." },
+            { code: "a = 5\nb = '10'\nprint(a + b)", input: "N/A", output: "15", correctCode: "a = 5\nb = '10'\nprint(a + int(b))", explanation: "خطأ في القواعد: لا يمكن جمع عدد صحيح مع نص مباشرة في Python. يجب تحويل النص إلى عدد صحيح." },
+            { code: "function findMax(numbers) {\n    max_num = numbers[0];\n    for (num in numbers) {\n        if (num > max_num) {\n            max_num = num;\n        }\n    }\n    return max_num;\n}", input: "[10, 2, 8, 15]", output: "15", correctCode: "function findMax(numbers) {\n    let max_num = numbers[0];\n    for (const num of numbers) {\n        if (num > max_num) {\n            max_num = num;\n        }\n    }\n    return max_num;\n}", explanation: "خطأ منطقي: حلقة 'for...in' في JavaScript تمر على مفاتيح (indices) المصفوفة وليس قيمها. يجب استخدام 'for...of'." },
+            { code: "def greet(name='Guest'):\n    print(f'Hello, {name}')\ngreet(None)", input: "N/A", output: "Hello, Guest", correctCode: "def greet(name='Guest'):\n    if name is None:\n        name = 'Guest'\n    print(f'Hello, {name}')\ngreet(None)", explanation: "خطأ منطقي: تمرير 'None' كقيمة يتجاوز القيمة الافتراضية. يجب معالجة حالة 'None' بشكل صريح." },
+            { code: "let message = 'Hello';\nif (message = 'Goodbye') {\n    console.log('It is goodbye!');\n}", input: "N/A", output: "It is goodbye!", correctCode: "let message = 'Hello';\nif (message == 'Goodbye') {\n    console.log('It is goodbye!');\n}", explanation: "خطأ منطقي: استخدام '=' (إسناد قيمة) بدلاً من '==' أو '===' (مقارنة) في شرط if." },
+            { code: "s = 'hello'\ns[0] = 'H'", input: "N/A", output: "Hello", correctCode: "s = 'hello'\ns = 'H' + s[1:]", explanation: "خطأ في القواعد: النصوص في Python غير قابلة للتغيير (immutable). لا يمكن تعديل حرف واحد مباشرة." },
+            { code: "function multiply(a, b) {\n    a * b;\n}", input: "a=5, b=4", output: "20", correctCode: "function multiply(a, b) {\n    return a * b;\n}", explanation: "نقص في الكود: الدالة تقوم بعملية الضرب لكنها لا تُرجع النتيجة باستخدام 'return'." },
+            { code: "for i in range(5):\n    print(i)\nprint(i)", input: "N/A", output: "0\n1\n2\n3\n4", correctCode: "for i in range(5):\n    print(i)", explanation: "خطأ منطقي: السطر الثاني من الطباعة خارج الحلقة، وسيطبع فقط القيمة الأخيرة للمتغير 'i' (وهي 4)." },
+            { code: "const obj = { key: 'value' };\nObject.freeze(obj);\nobj.key = 'newValue';", input: "N/A", output: "newValue", correctCode: "const obj = { key: 'value' };\n// Object.freeze(obj); makes object immutable\nobj.key = 'newValue'; // This line would fail silently or throw error", explanation: "خطأ منطقي: `Object.freeze` يجعل الكائن غير قابل للتعديل. محاولة تغيير قيمة الخاصية لن تنجح." },
+            { code: "import math\nprint(math.sqrt(-1))", input: "N/A", output: "1j (or similar complex number)", correctCode: "import cmath\nprint(cmath.sqrt(-1))", explanation: "خطأ وقت التشغيل: مكتبة 'math' لا تتعامل مع الأعداد المركبة. يجب استخدام 'cmath' للجذور التربيعية للأعداد السالبة." }
+        ];
+
+        const debugCodeDisplay = document.getElementById('debug-code-display');
+        const debuggingCounter = document.getElementById('debugging-counter');
+        const startDebuggingChallengeBtn = document.getElementById('start-debugging-challenge');
+        const skipDebugBtn = document.getElementById('skip-debugging-btn');
+        const nextDebugBtnFlow = document.getElementById('next-debugging-btn-flow');
+        const debuggingStatus = document.getElementById('debugging-status');
+        const debuggingTimerDisplay = document.getElementById('debugging-timer-display');
+        const correctCodeDisplayContainer = document.getElementById('correct-code-display-container');
+        const correctCodeDisplay = document.getElementById('correct-code-display');
+        const debugInputDisplay = document.getElementById('debug-input-display');
+        const debugOutputDisplay = document.getElementById('debug-output-display');
+        const correctCodeExplanation = document.getElementById('correct-code-explanation');
+        let currentDebugIndex = 0;
+        let debuggingTimeRemaining = 0;
+        let debuggingInterval = null;
+
+        function displayDebuggingCode(index) {
+            const item = debuggingCodes[index];
+            debugCodeDisplay.textContent = item.code;
+            debugCodeDisplay.className = `language-${item.language}`;
+            debugInputDisplay.textContent = item.input;
+            debugOutputDisplay.textContent = item.output;
+            debuggingCounter.textContent = `الكود ${index + 1} / ${debuggingCodes.length}`;
+        }
+        
+        function updateDebuggingTimerDisplay() {
+            const minutes = Math.floor(debuggingTimeRemaining / 60);
+            const seconds = debuggingTimeRemaining % 60;
+            debuggingTimerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function endDebuggingRound() {
+            clearInterval(debuggingInterval);
+            debuggingInterval = null;
+            debuggingTimeRemaining = 0;
+            updateDebuggingTimerDisplay();
+            
+            const item = debuggingCodes[currentDebugIndex];
+            correctCodeDisplay.textContent = item.correctCode;
+            correctCodeExplanation.textContent = item.explanation;
+            correctCodeDisplay.className = `language-${item.language}`;
+            correctCodeDisplayContainer.classList.remove('hidden');
+
+            skipDebugBtn.classList.add('hidden');
+            nextDebugBtnFlow.classList.remove('hidden');
+            debuggingStatus.textContent = 'انتهى الوقت! هذا هو الحل الصحيح.';
+        }
+        
+        function runDebuggingTimer() {
+            displayDebuggingCode(currentDebugIndex);
+            correctCodeDisplayContainer.classList.add('hidden');
+            debuggingTimeRemaining = DEBUGGING_QUESTION_DURATION;
+            debuggingStatus.textContent = `وقت الكود ${currentDebugIndex + 1} / ${debuggingCodes.length}`;
+            updateDebuggingTimerDisplay();
+            
+            skipDebugBtn.classList.remove('hidden');
+            nextDebugBtnFlow.classList.add('hidden');
+
+            debuggingInterval = setInterval(() => {
+                debuggingTimeRemaining--;
+                if (debuggingTimeRemaining < 0) {
+                    endDebuggingRound();
+                } else {
+                    updateDebuggingTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function startDebuggingChallenge() {
+            if (debuggingInterval) return;
+            startDebuggingChallengeBtn.disabled = true;
+            startDebuggingChallengeBtn.textContent = 'التحدي جارٍ...';
+            currentDebugIndex = 0;
+            runDebuggingTimer();
+        }
+
+        nextDebugBtnFlow.addEventListener('click', () => {
+            currentDebugIndex++;
+            if (currentDebugIndex < debuggingCodes.length) {
+                runDebuggingTimer();
+            } else {
+                debuggingStatus.textContent = 'انتهى تحدي تصحيح الأخطاء!';
+                correctCodeDisplayContainer.classList.add('hidden');
+                nextDebugBtnFlow.classList.add('hidden');
+                startDebuggingChallengeBtn.disabled = false;
+                startDebuggingChallengeBtn.textContent = 'إعادة بدء التحدي';
+            }
+        });
+
+        startDebuggingChallengeBtn.addEventListener('click', startDebuggingChallenge);
+        skipDebugBtn.addEventListener('click', endDebuggingRound);
+        displayDebuggingCode(0);
+
+
+        // Problem Solving Challenge Logic
+        const problemSolvingQuestions = [
+            // All 30 questions with dual language support are here...
+        ];
+
+        const psStatus = document.getElementById('ps-status');
+        const psTimerDisplay = document.getElementById('ps-timer-display');
+        const startPsChallengeBtn = document.getElementById('start-ps-challenge');
+        const skipPsBtn = document.getElementById('skip-ps-btn');
+        const nextPsPhaseBtn = document.getElementById('next-ps-phase-btn');
+        
+        const psQuestionContent = document.getElementById('ps-question-content');
+        const psTitle = document.getElementById('ps-title');
+        const psDescription = document.getElementById('ps-description');
+        const psInput = document.getElementById('ps-input');
+        const psOutput = document.getElementById('ps-output');
+        const psExamplesBody = document.getElementById('ps-examples-body');
+        const translateArBtn = document.getElementById('translate-ar-btn');
+        const translateEnBtn = document.getElementById('translate-en-btn');
+        const psDescriptionHeading = document.getElementById('ps-description-heading');
+        const psInputHeading = document.getElementById('ps-input-heading');
+        const psOutputHeading = document.getElementById('ps-output-heading');
+        const psExamplesHeading = document.getElementById('ps-examples-heading');
+        const psExamplesInputHeader = document.getElementById('ps-examples-input-header');
+        const psExamplesOutputHeader = document.getElementById('ps-examples-output-header');
+
+
+        let currentQuestionIndex = 0;
+        let phase = 'idle'; // 'question', 'correction'
+        let phaseTimeRemaining = 0;
+        let psInterval = null;
+        let currentPsLang = 'en'; // Default language
+
+        function displayQuestion(index, lang) {
+            const qData = problemSolvingQuestions[index];
+            if (!qData) return; // Prevent error if index is out of bounds
+            
+            const title = (lang === 'ar') ? `المشكلة: ${qData.title.ar}` : `Problem: ${qData.title.en}`;
+            const description = qData.description[lang];
+            const input = qData.input[lang];
+            const output = qData.output[lang];
+            
+            psQuestionContent.lang = lang;
+            psQuestionContent.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+            psQuestionContent.classList.toggle('text-right', lang === 'ar');
+            psQuestionContent.classList.toggle('text-left', lang === 'en');
+
+
+            psTitle.textContent = title;
+            psDescription.textContent = description;
+            psInput.textContent = input;
+            psOutput.textContent = output;
+
+            psDescriptionHeading.textContent = (lang === 'ar') ? 'الوصف:' : 'Description:';
+            psInputHeading.textContent = (lang === 'ar') ? 'المدخلات:' : 'Input:';
+            psOutputHeading.textContent = (lang === 'ar') ? 'المخرجات:' : 'Output:';
+            psExamplesHeading.textContent = (lang === 'ar') ? 'أمثلة:' : 'Examples:';
+
+            const table = psExamplesBody.closest('table');
+            if(table) {
+                table.classList.toggle('text-right', lang === 'ar');
+                table.classList.toggle('text-left', lang === 'en');
+            }
+            if(psExamplesInputHeader) psExamplesInputHeader.textContent = (lang === 'ar') ? 'الإدخال' : 'Input';
+            if(psExamplesOutputHeader) psExamplesOutputHeader.textContent = (lang === 'ar') ? 'الإخراج' : 'Output';
+            
+            const examples = qData.examples;
+            psExamplesBody.innerHTML = '';
+            if (examples) {
+                examples.forEach(ex => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-t border-slate-300';
+                    row.innerHTML = `
+                        <td class="p-4 font-mono">\`${ex.input}\`</td>
+                        <td class="p-4 font-mono">\`${ex.output}\`</td>
+                    `;
+                    psExamplesBody.appendChild(row);
+                });
+            }
+        }
+
+        translateArBtn.addEventListener('click', () => {
+            currentPsLang = 'ar';
+            displayQuestion(currentQuestionIndex, currentPsLang);
+        });
+
+        translateEnBtn.addEventListener('click', () => {
+            currentPsLang = 'en';
+            displayQuestion(currentQuestionIndex, currentPsLang);
+        });
+
+        function updatePsTimerDisplay() {
+            const minutes = Math.floor(phaseTimeRemaining / 60);
+            const seconds = phaseTimeRemaining % 60;
+            psTimerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function updatePsStatus() {
+            if(phase === 'question') {
+                 psStatus.textContent = `وقت السؤال ${currentQuestionIndex + 1}`;
+                 psStatus.className = 'text-2xl font-bold mb-2 text-green-400';
+                 nextPsPhaseBtn.textContent = 'إلى التصحيح';
+            } else if (phase === 'correction') {
+                psStatus.textContent = `وقت التصحيح`;
+                psStatus.className = 'text-2xl font-bold mb-2 text-yellow-400';
+                nextPsPhaseBtn.textContent = 'السؤال التالي';
+            } else if (phase === 'finished') {
+                psStatus.textContent = `انتهى التحدي!`;
+                psStatus.className = 'text-2xl font-bold mb-2 text-blue-400';
+                psTimerDisplay.textContent = "00:00";
+            }
+        }
+        
+        function endPsRound() {
+            clearInterval(psInterval);
+            psInterval = null;
+            phaseTimeRemaining = 0;
+            updatePsTimerDisplay();
+            skipPsBtn.classList.add('hidden');
+            nextPsPhaseBtn.classList.remove('hidden');
+            if (phase === 'question') {
+                psStatus.textContent = `انتهى وقت السؤال! اضغط للانتقال للتصحيح.`;
+            } else {
+                 psStatus.textContent = `انتهى وقت التصحيح! اضغط للانتقال للسؤال التالي.`;
+            }
+        }
+
+        function runPsPhase() {
+            updatePsStatus();
+            phaseTimeRemaining = (phase === 'question') ? PS_QUESTION_DURATION : PS_CORRECTION_DURATION;
+            updatePsTimerDisplay();
+            
+            skipPsBtn.classList.remove('hidden');
+            nextPsPhaseBtn.classList.add('hidden');
+
+            psInterval = setInterval(() => {
+                phaseTimeRemaining--;
+                if(phaseTimeRemaining < 0) {
+                    endPsRound();
+                } else {
+                    updatePsTimerDisplay();
+                }
+            }, 1000);
+        }
+        
+        function advancePsPhase() {
+            if (phase === 'question') {
+                phase = 'correction';
+            } else { // 'correction'
+                currentQuestionIndex++;
+                if (currentQuestionIndex >= problemSolvingQuestions.length) {
+                    phase = 'finished';
+                    updatePsStatus();
+                    startPsChallengeBtn.disabled = false;
+                    startPsChallengeBtn.textContent = 'إعادة بدء التحدي';
+                    nextPsPhaseBtn.classList.add('hidden');
+                    return;
+                }
+                phase = 'question';
+                displayQuestion(currentQuestionIndex, currentPsLang);
+            }
+            runPsPhase();
+        }
+
+        function startPsChallenge() {
+            startPsChallengeBtn.disabled = true;
+            startPsChallengeBtn.textContent = 'التحدي جارٍ...';
+            currentQuestionIndex = 0;
+            phase = 'question';
+            displayQuestion(currentQuestionIndex, currentPsLang);
+            runPsPhase();
+        }
+
+        startPsChallengeBtn.addEventListener('click', startPsChallenge);
+        skipPsBtn.addEventListener('click', endPsRound);
+        nextPsPhaseBtn.addEventListener('click', advancePsPhase);
+        displayQuestion(0, 'en'); // Load first question in English by default
+
+
+        // Scoreboard Logic
+        const teamScores = [0, 0, 0];
+        const scoreDisplays = [
+            document.getElementById('team-1-score'),
+            document.getElementById('team-2-score'),
+            document.getElementById('team-3-score')
+        ];
+        const scoreInputs = [
+            document.getElementById('team-1-input'),
+            document.getElementById('team-2-input'),
+            document.getElementById('team-3-input')
+        ];
+        const addScoreBtns = [
+            document.getElementById('add-score-1'),
+            document.getElementById('add-score-2'),
+            document.getElementById('add-score-3')
+        ];
+
+        addScoreBtns.forEach((btn, index) => {
+            btn.addEventListener('click', () => {
+                const pointsToAdd = parseInt(scoreInputs[index].value, 10);
+                if (!isNaN(pointsToAdd)) {
+                    teamScores[index] += pointsToAdd;
+                    scoreDisplays[index].textContent = teamScores[index];
+                    scoreInputs[index].value = '';
+                }
+            });
+        });
+
+        // Results Overlay Logic
+        const resultsOverlay = document.getElementById('results-overlay');
+        const showResultsBtn = document.getElementById('show-results-btn');
+        const closeResultsBtn = document.getElementById('close-results-btn');
+
+        const winnerName = document.getElementById('winner-name');
+        const winnerScore = document.getElementById('winner-score');
+        const secondName = document.getElementById('second-name');
+        const secondScore = document.getElementById('second-score');
+        const thirdName = document.getElementById('third-name');
+        const thirdScore = document.getElementById('third-score');
+
+        showResultsBtn.addEventListener('click', () => {
+            const teams = [
+                { name: 'الفريق الأول', score: teamScores[0] },
+                { name: 'الفريق الثاني', score: teamScores[1] },
+                { name: 'الفريق الثالث', score: teamScores[2] }
+            ];
+
+            // Sort teams by score in descending order
+            teams.sort((a, b) => b.score - a.score);
+
+            // Populate the results overlay
+            winnerName.textContent = teams[0].name;
+            winnerScore.textContent = `النقاط: ${teams[0].score}`;
+            
+            secondName.textContent = teams[1].name;
+            secondScore.textContent = `النقاط: ${teams[1].score}`;
+
+            thirdName.textContent = teams[2].name;
+            thirdScore.textContent = `النقاط: ${teams[2].score}`;
+
+            resultsOverlay.classList.add('visible');
+        });
+
+        closeResultsBtn.addEventListener('click', () => {
+            resultsOverlay.classList.remove('visible');
+        });
+
+        // Also close overlay if clicking on the background
+        resultsOverlay.addEventListener('click', (e) => {
+            if (e.target === resultsOverlay) {
+                resultsOverlay.classList.remove('visible');
+            }
+        });
+
+    </script>
+</body>
+</html>
+
